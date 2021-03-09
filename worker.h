@@ -19,7 +19,7 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <memory>
+
 using namespace std;
 
 
@@ -27,16 +27,15 @@ class Worker : public enable_shared_from_this<Worker>{
 	condition_variable cv;
 	mutex mtx;
 	unique_lock<mutex> ulock;
-	shared_ptr<AbstractRequest> request;
+	unique_ptr<AbstractRequest> request;
 	bool running;
 	bool ready;
 	
 public:
-
 	Worker() { running = true; ready = false; ulock = unique_lock<mutex>(mtx); }
 	void run();
 	void stop() { running = false; }
-	void setRequest(const shared_ptr<AbstractRequest>& request) { this->request = request; ready = true; }
+	void setRequest(unique_ptr<AbstractRequest> request) { this->request = move(request); ready = true; }
 	void getCondition(condition_variable* &cv);
 };
 

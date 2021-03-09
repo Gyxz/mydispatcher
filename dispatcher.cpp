@@ -21,24 +21,24 @@ using namespace std;
 
 
 // Static initialisations.
-queue<shared_ptr<AbstractRequest>> Dispatcher::requests;
+queue<unique_ptr<AbstractRequest>> Dispatcher::requests;
 queue<shared_ptr<Worker>> Dispatcher::workers;
 mutex Dispatcher::requestsMutex;
 mutex Dispatcher::workersMutex;
 vector<shared_ptr<Worker>> Dispatcher::allWorkers;
-vector<shared_ptr<thread>> Dispatcher::threads;
+vector<unique_ptr<thread>> Dispatcher::threads;
 
 
 // --- INIT ---
 // Start the number of requested worker threads.
 bool Dispatcher::init(int workers) {
-	shared_ptr<thread> t;
-	shared_ptr<Worker> w;
+	unique_ptr<thread> t;
+	shared_ptr<Worker> w ;
 	for (int i = 0; i < workers; ++i) {
 		w = make_shared<Worker>();
 		allWorkers.push_back(w);
-		t = make_shared<thread>(&Worker::run, w);
-		threads.push_back(t);
+		t = make_unique<thread>(&Worker::run, w);
+		threads.push_back(move(t));
 	}
 	
 	return true;
@@ -65,13 +65,13 @@ bool Dispatcher::stop() {
 
 
 // --- ADD REQUEST ---
-void Dispatcher::addRequest(const shared_ptr<AbstractRequest>& request) {
+void Dispatcher::addRequest(unique_ptr<AbstractRequest> request) {
 	// Check whether there's a worker available in the workers queue, else add
 	// the request to the requests queue.
 	workersMutex.lock();
 	if (!workers.empty()) {
 		shared_ptr<Worker> worker = workers.front();
-		worker->setRequest(request);
+		worker->setRequest(move(request));
 		condition_variable* cv;
 		worker->getCondition(cv);
 		cv->notify_one();
@@ -81,7 +81,7 @@ void Dispatcher::addRequest(const shared_ptr<AbstractRequest>& request) {
 	else {
 		workersMutex.unlock();
 		requestsMutex.lock();
-		requests.push(request);
+		requests.push(move(request));
 		requestsMutex.unlock();
 	}
 	
@@ -90,7 +90,7 @@ void Dispatcher::addRequest(const shared_ptr<AbstractRequest>& request) {
 
 
 // --- ADD WORKER ---
-bool Dispatcher::addWorker(const shared_ptr<Worker>& worker) {
+bool Dispatcher::addWorker(shared_ptr<Worker> worker) {
 	// If a request is waiting in the requests queue, assign it to the worker.
 	// Else add the worker to the workers queue.
 	// Returns true if the worker was added to the queue and has to wait for
@@ -98,8 +98,8 @@ bool Dispatcher::addWorker(const shared_ptr<Worker>& worker) {
 	bool wait = true;
 	requestsMutex.lock();
 	if (!requests.empty()) {
-		shared_ptr<AbstractRequest> request = requests.front();
-		worker->setRequest(request);
+		unique_ptr<AbstractRequest> request = move(requests.front());
+		worker->setRequest(move(request));
 		requests.pop();
 		wait = false;
 		requestsMutex.unlock();

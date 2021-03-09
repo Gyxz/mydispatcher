@@ -22,24 +22,23 @@
 #include <mutex>
 #include <thread>
 #include <vector>
-#include <memory>
 
 using namespace std;
 
 
 class Dispatcher {
-	static queue<shared_ptr<AbstractRequest>> requests;
+	static queue<unique_ptr<AbstractRequest>> requests;
 	static queue<shared_ptr<Worker>> workers;
 	static mutex requestsMutex;
 	static mutex workersMutex;
 	static vector<shared_ptr<Worker>> allWorkers;
-	static vector<shared_ptr<thread>> threads;
+	static vector<unique_ptr<thread>> threads;
 	
 public:
 	static bool init(int workers);
 	static bool stop();
-	static void addRequest(const shared_ptr<AbstractRequest>& request);
-	static bool addWorker(const shared_ptr<Worker>& worker);
+	static void addRequest(unique_ptr<AbstractRequest> request);
+	static bool addWorker(shared_ptr<Worker> worker);
 };
 
 #endif
